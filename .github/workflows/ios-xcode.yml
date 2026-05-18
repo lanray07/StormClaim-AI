@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   simulator-build:
     name: Simulator build
@@ -28,13 +31,28 @@ jobs:
       - name: Build for iOS Simulator
         run: |
           set -o pipefail
+          LOG_PATH="$RUNNER_TEMP/xcodebuild.log"
           xcodebuild \
             -project StormClaimAI.xcodeproj \
             -scheme StormClaimAI \
             -configuration Debug \
+            -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1 | tee "$LOG_PATH"
+
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "Xcode build failed. Last 200 log lines:"
+            tail -200 "$LOG_PATH"
+            while IFS= read -r line; do
+              escaped="${line//'%'/'%25'}"
+              escaped="${escaped//$'\n'/'%0A'}"
+              escaped="${escaped//$'\r'/'%0D'}"
+              echo "::error::$escaped"
+            done < <(tail -80 "$LOG_PATH")
+            exit "$status"
+          fi
 
       - name: Upload result bundle on failure
         if: failure()
