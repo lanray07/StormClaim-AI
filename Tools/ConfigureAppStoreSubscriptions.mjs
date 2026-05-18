@@ -14,6 +14,7 @@ const config = {
   appId: requiredEnv("ASC_APP_ID"),
   locale: process.env.ASC_LOCALE || "en-GB",
   territory: process.env.ASC_TERRITORY || "GBR",
+  allTerritories: process.env.ASC_ALL_TERRITORIES !== "0",
   reviewScreenshotPath: process.env.ASC_SUBSCRIPTION_REVIEW_SCREENSHOT || "",
 };
 
@@ -268,22 +269,34 @@ async function findPricePoint(subscriptionId, targetPrice) {
   return found;
 }
 
-async function existingPriceForTerritory(subscriptionId) {
-  const response = await api(
-    "GET",
-    `/v1/subscriptions/${subscriptionId}/prices?filter[territory]=${encodeURIComponent(config.territory)}&include=subscriptionPricePoint,territory&limit=200`,
-  );
-  return response.data?.[0] || null;
+async function getAllTerritories() {
+  const response = await api("GET", "/v1/territories?limit=200");
+  return response.data || [];
 }
 
-async function ensurePrice(subscriptionId, plan) {
-  const existing = await existingPriceForTerritory(subscriptionId);
-  if (existing) {
-    console.log(`Price already exists for ${plan.productId} in ${config.territory}`);
-    return;
-  }
+async function getTargetTerritoryIds() {
+  if (!config.allTerritories) return [config.territory];
+  const territories = await getAllTerritories();
+  return territories.map((territory) => territory.id);
+}
 
-  const pricePoint = await findPricePoint(subscriptionId, plan.gbpPrice);
+async function existingPrices(subscriptionId) {
+  const response = await api(
+    "GET",
+    `/v1/subscriptions/${subscriptionId}/prices?include=subscriptionPricePoint,territory&limit=200`,
+  );
+  return response.data || [];
+}
+
+async function equalizedPricePoints(basePricePointId) {
+  const response = await api(
+    "GET",
+    `/v1/subscriptionPricePoints/${encodeURIComponent(basePricePointId)}/equalizations?include=territory&limit=200`,
+  );
+  return response.data || [];
+}
+
+async function createSubscriptionPrice(subscriptionId, pricePointId) {
   await api("POST", "/v1/subscriptionPrices", {
     data: {
       type: "subscriptionPrices",
@@ -292,30 +305,70 @@ async function ensurePrice(subscriptionId, plan) {
       },
       relationships: {
         subscription: { data: { type: "subscriptions", id: subscriptionId } },
-        subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: pricePoint.id } },
+        subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: pricePointId } },
       },
     },
   });
-  console.log(`Set ${config.territory} price ${plan.gbpPrice} for ${plan.productId}`);
+}
+
+async function ensurePrice(subscriptionId, plan) {
+  const basePricePoint = await findPricePoint(subscriptionId, plan.gbpPrice);
+
+  if (!config.allTerritories) {
+    const existing = (await existingPrices(subscriptionId)).find(
+      (price) => price.relationships?.territory?.data?.id === config.territory,
+    );
+    if (existing) {
+      console.log(`Price already exists for ${plan.productId} in ${config.territory}`);
+      return;
+    }
+
+    await createSubscriptionPrice(subscriptionId, basePricePoint.id);
+    console.log(`Set ${config.territory} price ${plan.gbpPrice} for ${plan.productId}`);
+    return;
+  }
+
+  const targetTerritoryIds = await getTargetTerritoryIds();
+  const existingTerritoryIds = new Set(
+    (await existingPrices(subscriptionId)).map((price) => price.relationships?.territory?.data?.id).filter(Boolean),
+  );
+  const equalized = await equalizedPricePoints(basePricePoint.id);
+  const pricePointByTerritory = new Map([
+    [config.territory, basePricePoint.id],
+    ...equalized.map((pricePoint) => [pricePoint.relationships?.territory?.data?.id, pricePoint.id]),
+  ]);
+
+  let created = 0;
+  for (const territoryId of targetTerritoryIds) {
+    if (existingTerritoryIds.has(territoryId)) continue;
+
+    const pricePointId = pricePointByTerritory.get(territoryId);
+    if (!pricePointId) {
+      console.warn(`No equalized price point for ${plan.productId} in ${territoryId}`);
+      continue;
+    }
+
+    await createSubscriptionPrice(subscriptionId, pricePointId);
+    created += 1;
+  }
+
+  console.log(`Ensured ${targetTerritoryIds.length} territory prices for ${plan.productId} (${created} created)`);
 }
 
 async function ensureAvailability(subscriptionId, plan) {
   const response = await apiMaybe("GET", `/v1/subscriptions/${subscriptionId}/subscriptionAvailability`);
-  if (!response.error && response.data) {
-    console.log(`Availability already exists for ${plan.productId}`);
-    return;
-  }
+  const territoryIds = await getTargetTerritoryIds();
 
   const created = await apiMaybe("POST", "/v1/subscriptionAvailabilities", {
     data: {
       type: "subscriptionAvailabilities",
       attributes: {
-        availableInNewTerritories: false,
+        availableInNewTerritories: config.allTerritories,
       },
       relationships: {
         subscription: { data: { type: "subscriptions", id: subscriptionId } },
         availableTerritories: {
-          data: [{ type: "territories", id: config.territory }],
+          data: territoryIds.map((territoryId) => ({ type: "territories", id: territoryId })),
         },
       },
     },
@@ -325,7 +378,10 @@ async function ensureAvailability(subscriptionId, plan) {
     console.warn(`Skipped availability for ${plan.productId}: ${created.error.message.split("\n")[0]}`);
     return;
   }
-  console.log(`Set ${config.territory} availability for ${plan.productId}`);
+
+  const changed = response.error || response.data?.attributes?.availableInNewTerritories !== config.allTerritories;
+  const verb = changed ? "Set" : "Ensured";
+  console.log(`${verb} ${territoryIds.length} territory availability for ${plan.productId}`);
 }
 
 async function existingReviewScreenshot(subscriptionId) {
