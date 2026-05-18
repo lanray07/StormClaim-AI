@@ -30,6 +30,7 @@ jobs:
 
       - name: Build for iOS Simulator
         run: |
+          set +e
           set -o pipefail
           LOG_PATH="$RUNNER_TEMP/xcodebuild.log"
           xcodebuild \
