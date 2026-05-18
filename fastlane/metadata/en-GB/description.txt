@@ -1,0 +1,17 @@
+StormClaim AI helps roofers, contractors, property managers, landlords, homeowners, and insurance claim support teams document possible storm damage with a clear, professional workflow.
+
+Create a storm damage case, add property and client details, attach roof or interior photos, label damage locations, review cautious AI-assisted findings, organize evidence, and export a clean PDF report for client or claim-support documentation.
+
+Key features:
+- Storm damage case creation
+- Property and client details
+- Camera and photo upload support
+- Damage labels for roof, gutter, flashing, leaks, ceiling stains, debris, and exterior concerns
+- Mock AI-assisted visible damage findings
+- Human approval controls for findings
+- Evidence organizer with captions, timestamps, and review status
+- Severity badges and repair priority notes
+- Native PDF report export and sharing
+- Clear insurance, legal, safety, and professional review disclaimers
+
+StormClaim AI is documentation support only. It does not guarantee storm causation, repair cost, insurance coverage, claim approval, legal outcome, structural safety, or inspection certification. AI-assisted findings must be reviewed by qualified professionals. Users should not climb roofs or take unsafe photos.

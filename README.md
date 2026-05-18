@@ -26,6 +26,7 @@ This repository includes GitHub Actions workflows:
 
 - `iOS Xcode Build`: runs an unsigned iOS Simulator build on every push and pull request.
 - `iOS App Store Archive`: manual workflow for signed archive and App Store Connect upload after the required GitHub secrets are added.
+- `Upload App Store Assets`: manual workflow for App Store metadata and screenshot upload via Fastlane.
 
 Required secrets for App Store archive/upload:
 
@@ -36,3 +37,5 @@ Required secrets for App Store archive/upload:
 - `APP_STORE_CONNECT_API_KEY_ID`
 - `APP_STORE_CONNECT_API_ISSUER_ID`
 - `APP_STORE_CONNECT_API_KEY_BASE64`
+
+The generated App Store screenshots and listing copy are in `AppStoreAssets/` and mirrored into `fastlane/` for upload.
