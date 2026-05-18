@@ -230,7 +230,7 @@ final class DamageFinding {
     var caseId: UUID
     var photoId: UUID
     var title: String
-    var description: String
+    var findingDescription: String
     var category: String
     var severity: String
     var confidence: Double
@@ -255,7 +255,7 @@ final class DamageFinding {
         self.caseId = caseId
         self.photoId = photoId
         self.title = title
-        self.description = description
+        self.findingDescription = description
         self.category = category.rawValue
         self.severity = severity.rawValue
         self.confidence = confidence
@@ -272,6 +272,11 @@ final class DamageFinding {
     var severityValue: DamageSeverity {
         get { DamageSeverity(rawValue: severity) ?? .low }
         set { severity = newValue.rawValue }
+    }
+
+    var description: String {
+        get { findingDescription }
+        set { findingDescription = newValue }
     }
 }
 
