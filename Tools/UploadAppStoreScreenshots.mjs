@@ -100,11 +100,16 @@ async function getLocalization(versionId) {
 }
 
 async function getScreenshotSet(localizationId) {
-  const route = `/v1/appStoreVersionLocalizations/${localizationId}/appScreenshotSets?filter[screenshotDisplayType]=${encodeURIComponent(config.displayType)}&include=appScreenshots&limit[appScreenshots]=50`;
+  const route = `/v1/appStoreVersionLocalizations/${localizationId}/appScreenshotSets?limit=50`;
   const response = await api("GET", route);
-  const set = response.data?.[0] || null;
-  const screenshots = (response.included || []).filter((item) => item.type === "appScreenshots");
+  const set = (response.data || []).find((item) => item.attributes?.screenshotDisplayType === config.displayType) || null;
+  const screenshots = set ? await getScreenshotsForSet(set.id) : [];
   return { set, screenshots };
+}
+
+async function getScreenshotsForSet(setId) {
+  const response = await api("GET", `/v1/appScreenshotSets/${setId}/appScreenshots?limit=50`);
+  return response.data || [];
 }
 
 async function createScreenshotSet(localizationId) {
