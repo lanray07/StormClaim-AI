@@ -23,7 +23,7 @@ env:
 jobs:
   archive:
     name: Archive and prepare upload
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Checkout
