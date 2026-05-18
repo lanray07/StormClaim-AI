@@ -30,12 +30,15 @@ This repository includes GitHub Actions workflows:
 
 Required secrets for App Store archive/upload:
 
-- `APPLE_TEAM_ID`
 - `BUILD_CERTIFICATE_BASE64`
 - `P12_PASSWORD`
 - `BUILD_PROVISION_PROFILE_BASE64`
 - `APP_STORE_CONNECT_API_KEY_ID`
 - `APP_STORE_CONNECT_API_ISSUER_ID`
 - `APP_STORE_CONNECT_API_KEY_BASE64`
+
+The archive workflow reads the Apple team ID from the provisioning profile and accepts manual inputs for the App Store version, build number, and whether to upload the exported IPA to App Store Connect. If no build number is provided, the workflow uses the GitHub Actions run number.
+
+`Tools/PrepareAppStoreSigning.mjs` creates or downloads the App Store provisioning profile for `com.stormclaim.ai` and writes local, gitignored secret helper files into `SigningAssets/`.
 
 The generated App Store screenshots and listing copy are in `AppStoreAssets/` and mirrored into `fastlane/` for upload.

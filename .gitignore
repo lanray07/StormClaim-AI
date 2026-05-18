@@ -22,3 +22,12 @@ Package.resolved
 .env
 .env.*
 .xcodebuildmcp/
+
+# Local signing material
+SigningAssets/
+*.p12
+*.mobileprovision
+*.cer
+*.certSigningRequest
+*.key
+AuthKey_*.p8
