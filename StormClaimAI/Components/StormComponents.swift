@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import StoreKit
 
 struct SeverityBadge: View {
     var severity: DamageSeverity
@@ -214,9 +215,9 @@ struct PaywallView: View {
                     ]
                 )
 
-                planCard(
+                subscriptionPlanCard(
                     plan: .pro,
-                    price: "£29.99 monthly / £249.99 yearly",
+                    fallbackPrice: "GBP 29.99 monthly / GBP 249.99 yearly",
                     features: [
                         "Unlimited cases",
                         "250 photo scans per month",
@@ -227,9 +228,9 @@ struct PaywallView: View {
                     ]
                 )
 
-                planCard(
+                subscriptionPlanCard(
                     plan: .business,
-                    price: "£89.99 monthly",
+                    fallbackPrice: "GBP 89.99 monthly",
                     features: [
                         "Unlimited reports",
                         "Advanced branding",
@@ -238,6 +239,9 @@ struct PaywallView: View {
                         "Team workflow placeholder"
                     ]
                 )
+
+                restorePurchasesSection
+                legalLinksSection
             }
             .padding()
         }
@@ -272,18 +276,181 @@ struct PaywallView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Button {
-                subscriptionManager.mockUpgrade(to: plan)
-            } label: {
-                Text(subscriptionManager.plan == plan ? "Current plan" : "Use mock \(plan.displayName)")
-                    .frame(maxWidth: .infinity)
+            if plan != .free, subscriptionManager.mockMode {
+                Button {
+                    subscriptionManager.mockUpgrade(to: plan)
+                } label: {
+                    Text(subscriptionManager.plan == plan ? "Current plan" : "Activate test \(plan.displayName)")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(plan == .business ? AppTheme.navy : AppTheme.orange)
+                .disabled(subscriptionManager.plan == plan)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(plan == .business ? AppTheme.navy : AppTheme.orange)
-            .disabled(subscriptionManager.plan == plan)
         }
         .padding(16)
         .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func subscriptionPlanCard(plan: SubscriptionPlan, fallbackPrice: String, features: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            planCard(plan: plan, price: fallbackPrice, features: features)
+
+            if !subscriptionManager.mockMode {
+                let products = subscriptionManager.products(for: plan)
+                if products.isEmpty {
+                    productsUnavailableView
+                } else {
+                    ForEach(products, id: \.id) { product in
+                        productPurchaseRow(product)
+                    }
+                }
+            }
+        }
+    }
+
+    private var productsUnavailableView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if subscriptionManager.isLoading {
+                ProgressView("Loading App Store products...")
+                    .font(.subheadline)
+            } else {
+                Text("App Store subscription products are not available yet. Check your connection, then try again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button {
+                    Task { await subscriptionManager.loadProducts() }
+                } label: {
+                    Label("Retry Loading Products", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(16)
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func productPurchaseRow(_ product: Product) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(product.displayName)
+                        .font(.headline)
+                    Text(product.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Length: \(subscriptionPeriodDescription(for: product))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 12)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(product.displayPrice)
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.orange)
+                    Text(pricePerUnitDescription(for: product))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button {
+                Task { await subscriptionManager.purchase(product) }
+            } label: {
+                HStack {
+                    if subscriptionManager.purchasingProductID == product.id {
+                        ProgressView()
+                    }
+                    Text(subscriptionManager.purchasingProductID == product.id ? "Opening App Store..." : "Subscribe")
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(product.id == "stormclaim.business.monthly" ? AppTheme.navy : AppTheme.orange)
+            .disabled(subscriptionManager.purchasingProductID != nil)
+        }
+        .padding(16)
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var restorePurchasesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let errorMessage = subscriptionManager.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            Button {
+                Task { await subscriptionManager.restorePurchases() }
+            } label: {
+                Label("Restore Purchases", systemImage: "arrow.clockwise.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(subscriptionManager.mockMode || subscriptionManager.isLoading)
+        }
+        .padding(16)
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var legalLinksSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Subscription terms")
+                .font(.headline)
+            Text("Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel subscriptions in your Apple ID account settings.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                Link("Privacy Policy", destination: AppLinks.privacyPolicy)
+                Link("Terms of Use (EULA)", destination: AppLinks.termsOfUse)
+            }
+            .font(.caption.weight(.semibold))
+        }
+        .padding(16)
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func subscriptionPeriodDescription(for product: Product) -> String {
+        guard let period = product.subscription?.subscriptionPeriod else {
+            return "Auto-renewable subscription"
+        }
+
+        return periodDescription(period)
+    }
+
+    private func pricePerUnitDescription(for product: Product) -> String {
+        guard let period = product.subscription?.subscriptionPeriod else {
+            return "Auto-renewing"
+        }
+
+        return "\(product.displayPrice) per \(periodUnitDescription(period))"
+    }
+
+    private func periodDescription(_ period: Product.SubscriptionPeriod) -> String {
+        let unit = unitName(period.unit, plural: period.value != 1)
+        return "\(period.value) \(unit)"
+    }
+
+    private func periodUnitDescription(_ period: Product.SubscriptionPeriod) -> String {
+        if period.value == 1 {
+            return unitName(period.unit, plural: false)
+        }
+
+        return "\(period.value) \(unitName(period.unit, plural: true))"
+    }
+
+    private func unitName(_ unit: Product.SubscriptionPeriod.Unit, plural: Bool) -> String {
+        switch unit {
+        case .day: plural ? "days" : "day"
+        case .week: plural ? "weeks" : "week"
+        case .month: plural ? "months" : "month"
+        case .year: plural ? "years" : "year"
+        @unknown default: plural ? "periods" : "period"
+        }
     }
 }
 

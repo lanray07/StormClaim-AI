@@ -8,6 +8,7 @@ final class SubscriptionManager: ObservableObject {
     @Published var isActive = false
     @Published var renewsAt: Date?
     @Published var isLoading = false
+    @Published var purchasingProductID: String?
     @Published var errorMessage: String?
 
     let mockMode: Bool
@@ -18,12 +19,13 @@ final class SubscriptionManager: ObservableObject {
         "stormclaim.business.monthly": .business
     ]
 
-    init(mockMode: Bool = true) {
+    init(mockMode: Bool = false) {
         self.mockMode = mockMode
     }
 
     func loadProducts() async {
         guard !mockMode else { return }
+        errorMessage = nil
 
         isLoading = true
         defer { isLoading = false }
@@ -38,6 +40,9 @@ final class SubscriptionManager: ObservableObject {
 
     func purchase(_ product: Product) async {
         guard !mockMode else { return }
+        errorMessage = nil
+        purchasingProductID = product.id
+        defer { purchasingProductID = nil }
 
         do {
             let result = try await product.purchase()
@@ -56,6 +61,20 @@ final class SubscriptionManager: ObservableObject {
             @unknown default:
                 break
             }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func restorePurchases() async {
+        guard !mockMode else { return }
+        errorMessage = nil
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await AppStore.sync()
+            await updateEntitlements()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -82,6 +101,14 @@ final class SubscriptionManager: ObservableObject {
         plan = bestPlan
         isActive = bestPlan != .free
         renewsAt = bestRenewal
+    }
+
+    func products(for plan: SubscriptionPlan) -> [Product] {
+        products
+            .filter { productIDs[$0.id] == plan }
+            .sorted { first, second in
+                productSortRank(first.id) < productSortRank(second.id)
+            }
     }
 
     func mockUpgrade(to newPlan: SubscriptionPlan) {
@@ -124,5 +151,14 @@ final class SubscriptionManager: ObservableObject {
         )
 
         return max(0, 10 - scannedPhotoIDs.count)
+    }
+
+    private func productSortRank(_ productID: String) -> Int {
+        switch productID {
+        case "stormclaim.pro.monthly": 0
+        case "stormclaim.pro.yearly": 1
+        case "stormclaim.business.monthly": 2
+        default: 99
+        }
     }
 }

@@ -1,14 +1,22 @@
+import Foundation
 import SwiftData
 import SwiftUI
 
 @main
 struct StormClaimAIApp: App {
-    @StateObject private var subscriptionManager = SubscriptionManager(mockMode: true)
+    @StateObject private var subscriptionManager: SubscriptionManager
 
     private let modelContainer: ModelContainer
     private let aiService: any AIService
 
     init() {
+        #if DEBUG
+        let mockSubscriptions = ProcessInfo.processInfo.arguments.contains("-MockSubscriptions")
+        #else
+        let mockSubscriptions = false
+        #endif
+
+        _subscriptionManager = StateObject(wrappedValue: SubscriptionManager(mockMode: mockSubscriptions))
         aiService = MockAIService()
 
         do {

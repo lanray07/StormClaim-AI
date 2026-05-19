@@ -23,6 +23,9 @@ const group = {
   displayName: "StormClaim AI Plans",
 };
 
+const reviewNote =
+  "StoreKit 2 subscription for StormClaim AI paywall features. Review path: launch the app, complete onboarding, open Dashboard > Subscription Status or tap an Upgrade banner, then tap Subscribe. Paywall includes Privacy Policy, Terms of Use (EULA), and Restore Purchases.";
+
 const plans = [
   {
     name: "StormClaim AI Pro Monthly",
@@ -184,7 +187,7 @@ async function getOrCreateSubscription(groupId, plan, existingSubscriptions) {
     subscriptionPeriod: plan.period,
     groupLevel: plan.groupLevel,
     familySharable: false,
-    reviewNote: "StoreKit 2 subscription for StormClaim AI paywall features. Mock AI mode is enabled by default.",
+    reviewNote,
   };
 
   if (found) {
@@ -196,7 +199,7 @@ async function getOrCreateSubscription(groupId, plan, existingSubscriptions) {
           name: plan.name,
           groupLevel: plan.groupLevel,
           familySharable: false,
-          reviewNote: "StoreKit 2 subscription for StormClaim AI paywall features. Mock AI mode is enabled by default.",
+          reviewNote,
         },
       },
     });

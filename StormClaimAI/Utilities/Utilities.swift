@@ -34,6 +34,11 @@ enum SafetyCopy {
     ]
 }
 
+enum AppLinks {
+    static let privacyPolicy = URL(string: "https://github.com/lanray07/StormClaim-AI/blob/main/PRIVACY.md")!
+    static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+}
+
 enum AppTheme {
     static let navy = Color(red: 0.04, green: 0.12, blue: 0.24)
     static let slate = Color(red: 0.31, green: 0.36, blue: 0.43)
